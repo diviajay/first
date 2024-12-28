@@ -1,10 +1,2 @@
-[
-{
-"csv_file_path":"",
-"file_name:""
-},
-{
-"csv_file_path":"",
-"file_name:""
-}
-]
+[ { "csv_file_path":"first/refs/heads/main/employee.csv", "file_name:"employee.csv" }, 
+  { "csv_file_path":"first/refs/heads/main/emp_father.csv", "file_name:"emp_father.csv" } ]
