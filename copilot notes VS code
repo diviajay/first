@@ -1,0 +1,5 @@
+1) Normally when you type in code editor (VS code) it will give one suggestion then based on your acceptance you can 
+   (accept or reject) But if you want multiple suggestions then what you will do?
+Answer : click (control + shift + p) it will open search option at top and type Github Copilot: Open Completions Panel it will show multiple suggestions then based on your 
+         choice you can select your suggestion.
+  
