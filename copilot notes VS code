@@ -3,3 +3,56 @@
 Answer : click (control + shift + p) it will open search option at top and type Github Copilot: Open Completions Panel it will show multiple suggestions then based on your 
          choice you can select your suggestion.
   
+Inline code suggestions (control + I ) 
+         or
+Right click on editor then 
+click on copilot then you will have options like 
+1) Editor Inline chat
+2) Explain
+3) Fix
+4) Review and Comment
+5) Generate Docs
+6) Generate Tests
+7) Add selection to the chat
+8) Add file to the chat
+
+-> If you want tests on the code how?
+A: click on Generate Tests (In above you can see how to click ) After clicking on Generate Tests it will create new file like Tests_filename then we need to accept
+   that file. OR ( Inline we can mention like write test cases for this function ) then automatically it will provide code for that.
+
+
+Comment to code suggestions
+
+
+slash commands:
+/explain (you can select your code and type in copilot chat or inline chat)
+/refactor (It will optimize your code and provide best code suggestion)
+/tests (It will generate test cases with new file )
+/docs or /doc - Generate or improve documentation for code
+/fix - Attempt to fix errors or bugs in the selected code
+/optimize - Optimize the selected code for performance or readability
+/generate - Create new code based on a description or requirements
+/run - Execute code or tests (if supported by the environment)
+/comment - add or improve comments in the code
+/summarize - provide the summary of the code or file
+/help - help command in GitHub Copilot shows you the list of available Copilot chat commands,
+      explains what each command does, and helps you understand how to use Copilot features inside the chat.
+/setuptests is a slash command in GitHub Copilot Chat that helps you set up a test framework and basic test structure for your project.
+            It is used when you don’t have tests yet or when your project’s test environment is not configured.
+/clear - It will clear the chat history
+
+
+Limitations of Github Copilot:
+Copilot wont give 100% correctness of code or suggestions: Developer needs to verify those.
+If you have more lines of code like 10000 and ask copilot to explain it truncates and explains because copilot has context limitaions and token limitations so it 
+   cannot summarize huge huge lines of code
+If i ask any non coding related questions like (whats the whether today ) -- It will reply like sorry i cant assist
+
+
+Share feedback using the copilot chat UI:
+After getting responce from copilot at the end of reponse it displays three options:
+1) Retry button symbol
+2) Like button symbol (naming as helpful)
+3) Dislike button symbol (naming as unhelpful)
+Based on our feedback microsoft copilot will make that reponse is important and apply those to enhance in their models. 
+These feedbacks will go to github secureley
