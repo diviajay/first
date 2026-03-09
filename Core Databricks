@@ -48,4 +48,4 @@ Workflow Orchestration - manages DAGS and dependencies.
 KEY POINT : Your actual data NEVER enters the control plane. only metadata, logs and configurations live here.
 
 
-
+Data plane - Think of the data plane like the actual data
