@@ -1,11 +1,54 @@
 Datamaster youtube channel playlist link 
 https://www.youtube.com/watch?v=EofTClwTVqc&list=PL7S7dD8r4QdU_JwlmC8sBzx920pUMKadF&pp=0gcJCbUEOCosWNin
 Focus of below definations of each concept and its hirarechy
-Airtifial intelligence 
-      Machine Learning 
-            Deep Learning 
-                  Generative AI
 
-LLM's -> Trained on massive volumes of data
+1)what is GENAI?
+A: GEN AI is a subset of Artifial Intelligence.
+Airtifial intelligence - Ai is a field of computer science dedicated a systematic computational process where systems learn patterns,algorithms  from empirical data and make
+                        autonoumous decisions with minimal explicit programming.
+      Machine Learning - Learn from existing data and make predictions without being explicilty programmed.
+            Deep Learning - uses artifial neural networks to learn from data.
+                  Generative AI - GENAI is a subset of AI that focuses on generating new content such as 
+                                    (images, text, videous, audio or music, code, 3d objects, synthetic data)
+
+Factors making GENAI possible now -
+1)large datasets- Availability of large and diverse data sets, AI models learn patterns, correlations and characterstics of 
+                  large datasets.
+2)Computational power 
+3)Innovative DL models - Generative Adversarial Networks(GANs), 
+                        Transformers architecture, 
+                        Reinforcement learning from human feedback(RLHF)
+
+LLM's -> It is a subset of GENAI (Model trained on massive datasets to achieve advanced language processing
+capabilities based on deep learning neural networks. 
+LLM's are advanced models it leverages the power of GENAI 
+LLM's are not HYPE - They changed the AI game
+Genai and LLm's are a once-in-a-generation shift in Technology Trained on massive volumes of data
+How LLMS work?
+Inputs    -   tokenize(Encode text into numeric representation)   -  token embeddings(put words with similar meaning close in vector space)
+-   pretrained transformer model   -   output text
+
 Difference between Open source models and closed source models
+
+opensource model - open source llms make their model weights, architecture, and sometimes training code publicly avaliable.Anyone
+can download,run,modify,fine-tune or redistribute them. 
+Can be run locally on your hardware.
+No per-token API costs(after hardware investment) 
+examples : (LLaMA 3.1, Mistral7B, Gemma2, Falcon, Phi-3, DeepSeek R1)
+
+Closedsource model - closed source llms keep theor weights, architecture, and training data proprietary. You access them only 
+through an API. Paying per token/request. You cannot download or modify the model.
+No infrastructure managemnet
+Always up-to-date (provider handles updates)
+Typically highest performance out-of-the box.
+Enterprice suppport and SLA's available.
+examples : (GPT, Claude, Gemini)
+
+
+which features we have to consider while selecting model?
+Privacy
+quality
+cost
+latency
+
 DBRX by Databricks - It is a open source model (given by databricks)
