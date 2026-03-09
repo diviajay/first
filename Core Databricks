@@ -1,0 +1,51 @@
+what is delta lake?
+A: Delta lake is an open source storage layer that sits on top of your existing data lake( like s3 or adls) and adds reliability 
+and performance to it. It addresses the key weakness of traditional data lakes by providing
+ACID Transactions - so concurrent reads/writes are safe
+Time travel - query data as it existed at any point in the past using versioning
+schema enforcement and evolution - prevents bad data from corrupting your tables
+support for dml operations like (MERGE, UPDATE AND DELETE)
+A transction log(_delta_log) that tracks every change made to the table.
+** Delta lake stores data as parquet files with a transaction log
+The secret sauce - a JSON based log that tracks every change 
+same table can handle both batch and streaming data.
+
+
+Apache spark lacks the ACID transaction capabilities So using delta lake we can overcome that issue
+
+	1) Delta Lake అనే పదాన్ని storage layer అనే విధంగా వాడతారు, కానీ దీనిని storage system అనీ కాదు.
+	2) Delta Lake అనేది నేరుగా డేటాను స్టోర్ చేయదు. దానికి తన సొంత స్టోరేజ్ వ్యవస్థ ఉండదు.
+	3) ఇది క్లౌడ్ object storage (ఉదాహరణకి Azure Blob Storage, AWS S3, Google Cloud Storage) పైన కూర్చుంది.అంటే, మీ డేటా ఈ cloud storage లో ఉంది, కాని Delta Lake దానిపైన ACID transaction, time travel, transaction logs, schema control, version tracking వంటివి కలిపి దీన్ని visibly organized and reliable data tables గా మార్చుతుంది.
+	4) Delta Lake అనేది cloud storage లో ఉన్న raw files ను structured & trustworthy format లో represent చేయడానికి ఉపయోగపడే ఒక storage layer. కానీ, cloud storage లాంటి physical storage అదే కాకపోతుంది.
+	5) Delta Lake అనేది Apache Parquet ఫైళ్లపై నిర్మించబడిన storage format.
+	
+	Delta Lake యొక్క ముఖ్య ఉద్దేశ్యం
+	Raw data lakes లో ఉన్న inconsistent data ను clean చేసి, trustworthy data గా మార్చడం.
+	Real-time & batch processing రెండింటికీ support చేయడం.
+	Data warehouse లాంటి performance ను data lake లోనే అందించడం.
+	Machine Learning, BI, Analytics కోసం data ను prepare చేయడం.
+	
+	Delta Lake ఎలా పని చేస్తుంది?
+	a) Parquet Files: Data ను columnar format లో store చేస్తుంది.
+	b) Transaction Log: ప్రతి write/update/delete ను track చేసే JSON/Parquet logs ను maintain చేస్తుంది.
+	c) ACID Transactions: Partial writes, corrupt data లాంటి issues లేకుండా safe updates చేస్తుంది.
+	d) Schema Enforcement & Evolution: Schema mismatch ఉన్న data reject చేయడం లేదా adapt చేయడం.
+	e) Time Travel: గత versions ను query చేయడం, rollback చేయడం.
+
+2) Databricks Architecture splits into two parts
+Control plane and Data plane
+control plane - owned by databricks (Lives in own databricks cloud account)
+Data plane - owned by customer (Your cloud account aws/gcp/azure)
+
+Control plane - Think of like control plane is like brain/Manager of databricks
+what lives in databricks?
+Databricks webui - the notebook or sql query or etc interfaces we use daily.
+cluster manager - decides when to start/stop the clusters
+job scheduler - schedules and triggers your pipelines/jobs
+unity catalog metastore - stores table definations, permissions(not actual data)
+MLflow tracking server - tracks ML experiments
+Workflow Orchestration - manages DAGS and dependencies.
+KEY POINT : Your actual data NEVER enters the control plane. only metadata, logs and configurations live here.
+
+
+
