@@ -533,6 +533,7 @@ OPTIMIZE employees ZORDER BY (department, city);
 **********************************************************************
 
 ZORDER — What is it?
+Zorder means nothing grouping all similar data
 "ZORDER physically sorts and co-locates related data together in same parquet files so queries can skip irrelevant files completely"
 WITHOUT ZORDER:
 file_001.parquet → Hyderabad, Bangalore, Chennai, Mumbai (mixed!)
