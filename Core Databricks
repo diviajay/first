@@ -1840,6 +1840,9 @@ Databricks UI:
 → External Data
 → Storage Credentials
 → Create Credential
+  (before creating credential, you have to create access connector for databricks in same location of you databricks 
+workspace then copy resource id,  after open cloud storage IAM provide access that access connector.
+
 
 OR SQL:
 CREATE STORAGE CREDENTIAL my_azure_credential
