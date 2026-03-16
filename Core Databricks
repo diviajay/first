@@ -1734,3 +1734,223 @@ WHERE data lives!
 
 
 *****************************************************************************
+Cloud Account Mounting in Databricks
+
+Mounting Azure Storage vs Unity Catalog — Two Ways 🎯
+
+WAY 1 — DBFS Mount (Old Way)
+Mount Azure ADLS Gen2 to Databricks
+Step 1 — Create Service Principal in Azure
+Azure Portal:
+→ Azure Active Directory
+→ App Registrations
+→ New Registration
+→ Give name: "databricks-mount-sp"
+→ Register
+
+Note down:
+→ Application (client) ID
+→ Directory (tenant) ID
+→ Create Client Secret → note down Secret Value
+Step 2 — Give Storage Permission
+Azure Portal:
+→ Your Storage Account
+→ Access Control (IAM)
+→ Add Role Assignment
+→ Role: "Storage Blob Data Contributor"
+→ Assign to: your Service Principal
+→ Save
+Step 3 — Store Secrets in Databricks Secret Scope
+# Never hardcode credentials in notebook!
+# Use Databricks Secret Scope
+
+# Create secret scope first (run in CLI or UI)
+# databricks secrets create-scope --scope azure-scope
+
+# Store secrets
+# databricks secrets put --scope azure-scope --key client-id
+# databricks secrets put --scope azure-scope --key client-secret
+# databricks secrets put --scope azure-scope --key tenant-id
+
+Step 4 — Mount in Notebook
+# Read secrets securely
+client_id     = dbutils.secrets.get(scope="azure-scope", key="client-id")
+client_secret = dbutils.secrets.get(scope="azure-scope", key="client-secret")
+tenant_id     = dbutils.secrets.get(scope="azure-scope", key="tenant-id")
+
+# Mount configuration
+configs = {
+  "fs.azure.account.auth.type": "OAuth",
+  "fs.azure.account.oauth.provider.type": 
+      "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider",
+  "fs.azure.account.oauth2.client.id": client_id,
+  "fs.azure.account.oauth2.client.secret": client_secret,
+  "fs.azure.account.oauth2.client.endpoint": 
+      f"https://login.microsoftonline.com/{tenant_id}/oauth2/token"
+}
+
+# Mount!
+dbutils.fs.mount(
+  source = "abfss://mycontainer@mystorageaccount.dfs.core.windows.net/",
+  mount_point = "/mnt/myazurestorage",
+  extra_configs = configs
+)
+
+print("Mounted Successfully!")
+Step 5 — Verify and Use
+# Check mount
+dbutils.fs.ls("/mnt/myazurestorage")
+
+# Read data
+df = spark.read.format("csv") \
+    .option("header", "true") \
+    .load("/mnt/myazurestorage/raw/sales.csv")
+
+# Write data
+df.write.format("delta") \
+    .save("/mnt/myazurestorage/delta/sales")
+Step 6 — Unmount When Needed
+dbutils.fs.unmount("/mnt/myazurestorage")
+⚠️ Problems with Mount Approach
+❌ Mount is workspace level — other workspaces cant access
+❌ Bypasses Unity Catalog security
+❌ No audit logs
+❌ No column/row level security
+❌ Anyone with cluster access sees mounted data
+❌ Databricks discouraging this approach now
+
+Databricks support two types of secret scopes. Databricks managed scope stores secrets internally - created via the
+#secrets/createScope URL or cli. Azure key vault backed scope stores secrets in azure key vault  and databricks reads from it.
+azure key vault is recommended for production because secrets are centrally managed in azure along side other application secrets,
+giving unified governance across the entire azure ecosystem.
+​
+WAY 2 — Unity Catalog (New Recommended Way)
+No Mounting Needed! — Unity Catalog uses External Locations
+Concept — External Location
+Instead of mounting:
+Unity Catalog creates "External Location"
+→ Trusted connection between
+  Databricks and your Azure Storage
+→ Governed by Unity Catalog security
+→ Works across ALL workspaces!
+Step 1 — Create Storage Credential in Unity Catalog
+Databricks UI:
+→ Unity Catalog (top left)
+→ Data
+→ External Data
+→ Storage Credentials
+→ Create Credential
+
+OR SQL:
+CREATE STORAGE CREDENTIAL my_azure_credential
+WITH AZURE_MANAGED_IDENTITY
+(
+  CREDENTIAL 'my-databricks-managed-identity'
+);
+
+-- OR using Service Principal
+CREATE STORAGE CREDENTIAL my_azure_credential
+WITH AZURE_SERVICE_PRINCIPAL
+(
+  DIRECTORY_ID   = 'your-tenant-id',
+  APPLICATION_ID = 'your-client-id',
+  CLIENT_SECRET  = 'your-client-secret'
+);
+Step 2 — Create External Location
+-- Point Unity Catalog to your Azure Storage path
+CREATE EXTERNAL LOCATION my_azure_location
+URL 'abfss://mycontainer@mystorageaccount.dfs.core.windows.net/'
+WITH (STORAGE CREDENTIAL my_azure_credential);
+
+-- Verify it works
+DESCRIBE EXTERNAL LOCATION my_azure_location;
+Step 3 — Grant Access to Teams
+-- Give specific team access to this location
+GRANT READ FILES ON EXTERNAL LOCATION my_azure_location
+TO `data-engineering-team`;
+
+GRANT WRITE FILES ON EXTERNAL LOCATION my_azure_location
+TO `data-engineering-team`;
+
+-- Read only for analysts
+GRANT READ FILES ON EXTERNAL LOCATION my_azure_location
+TO `analyst-team`;
+Step 4 — Create External Table on That Location
+-- Create catalog
+CREATE CATALOG IF NOT EXISTS main;
+
+-- Create schema
+CREATE SCHEMA IF NOT EXISTS main.sales;
+
+-- Create external table pointing to your Azure location
+CREATE TABLE main.sales.orders
+USING DELTA
+LOCATION 'abfss://mycontainer@mystorageaccount.dfs.core.windows.net/delta/orders';
+
+-- Now anyone with permission queries like this!
+SELECT * FROM main.sales.orders;
+Step 5 — Grant Table Level Access
+-- Full access to data engineers
+GRANT ALL PRIVILEGES ON TABLE main.sales.orders
+TO `data-engineering-team`;
+
+-- Read only to analysts
+GRANT SELECT ON TABLE main.sales.orders
+TO `analyst-team`;
+
+-- Column level — hide salary from juniors
+GRANT SELECT (order_id, customer_id, revenue)
+ON TABLE main.sales.orders
+TO `junior-analysts`;
+Step 6 — Use It Anywhere!
+# In any notebook, any workspace!
+df = spark.read.table("main.sales.orders")
+
+# Or SQL
+spark.sql("SELECT * FROM main.sales.orders")
+
+# Write new data
+df.write.format("delta") \
+    .mode("append") \
+    .saveAsTable("main.sales.orders")
+Side by Side Comparison
+Step
+DBFS Mount
+Unity Catalog
+Setup
+Mount via dbutils
+External Location + Credential
+Access path
+/mnt/mypath
+main.sales.tablename
+Security
+No control ❌
+Full control ✅
+Cross workspace
+❌ No
+✅ Yes
+Audit logs
+❌ No
+✅ Yes
+Column security
+❌ No
+✅ Yes
+Recommended
+❌ Legacy
+✅ Current standard
+Simple Way to Remember 💡
+DBFS Mount:
+Azure Storage → Service Principal
+             → Mount to /mnt/path
+             → Anyone on cluster accesses!
+             → No security!
+
+Unity Catalog:
+Azure Storage → Storage Credential
+             → External Location
+             → External Table (main.schema.table)
+             → Governed access only!
+             → Full security! ✅
+🎯 Interview Answer
+"There are two ways to connect Azure Storage to Databricks. Old way is DBFS Mount — create a Service Principal in Azure, give it storage access, store credentials in Databricks Secret Scope, and mount using dbutils.fs.mount to a /mnt/ path. Simple but has no security governance — anyone on the cluster sees the data.
+New recommended way is Unity Catalog External Location — create a Storage Credential with Azure Managed Identity or Service Principal, create an External Location pointing to your ADLS path, then create External Tables on top. Now all access goes through Unity Catalog — column level security, row level security, audit logs, cross workspace access — everything governed properly. Databricks is actively discouraging DBFS mounts in favor of this approach!"
