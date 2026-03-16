@@ -1243,3 +1243,494 @@ slightly more overhead than temp view
 ************************************************************************
 
 
+Delta Sharing vs Query Federation 🎯
+Delta Sharing
+What: Open protocol to share live Delta tables with external users — without copying data
+Purpose: Share your data with partners, vendors, other companies securely
+How it Works:
+Your Company (Provider)          External Company (Recipient)
+Delta Table in S3          →     Access live data directly
+No data copy!              →     Using their own tools
+You control access         →     Spark/Pandas/Power BI anything
+Key Points:
+Data stays in YOUR storage — never moves
+Recipient gets read only access
+Works across clouds (AWS → Azure → GCP)
+Open protocol — recipient doesn't need Databricks
+Access can be revoked anytime
+Audit trail of who accessed what
+Real World Example:
+Bank shares transaction summary → Auditor company
+Hospital shares anonymized data → Research institute
+Retailer shares sales data      → Supplier/Vendor
+
+Without Delta Sharing:
+→ Export data → Send file → Recipient imports
+→ Data is stale, security risk, duplicate copy!
+
+With Delta Sharing:
+→ Recipient queries YOUR live data directly
+→ Always fresh, secure, no duplicate!
+
+
+Query Federation
+What: Query data sitting in EXTERNAL databases directly from Databricks — without moving data into Delta Lake
+Purpose: Join and analyze data across multiple external systems from one single place
+How it Works:
+Databricks SQL Warehouse
+         |
+         ├── Query MySQL database directly
+         ├── Query Snowflake directly  
+         ├── Query Redshift directly
+         ├── Query PostgreSQL directly
+         └── Query your Delta Tables
+         
+All in ONE single SQL query!
+No ETL needed!
+Real World Example:
+-- Join Delta Lake table with external MySQL
+-- All in ONE query from Databricks!
+
+SELECT 
+  d.customer_id,
+  d.total/_revenue,
+  m.customer_name,    -- coming from MySQL!
+  m.phone/_number      -- coming from MySQL!
+FROM delta_table d
+JOIN mysql_connection.customers m  -- External MySQL!
+ON d.customer_id = m.id/
+Key Points:
+No data movement needed
+No ETL pipelines needed
+Data stays in source systems
+Real time — always fresh data
+Available in Pro and Serverless SQL Warehouse only
+Supported sources: MySQL, PostgreSQL, Redshift, Snowflake, SQL Server
+Key Difference
+
+Delta Sharing
+Query Federation
+Direction
+You share YOUR data OUT
+You query EXTERNAL data IN
+Purpose
+Give others access to your data
+Access others data from Databricks
+Data Movement
+No copy
+No copy
+Who needs Databricks
+Only provider
+Only you (querier)
+Use Case
+Share with partners/vendors
+Avoid ETL from external DBs
+Simple Way to Remember 💡
+Delta Sharing = YOU are the restaurant — you share your food (data) with outside people without giving them your kitchen recipe
+Query Federation = YOU are the customer — you sit in one place and order food from multiple restaurants (databases) at once
+
+******************************************************
+
+
+Important Databricks Interview Concepts 🎯
+1️⃣ Managed Table vs External Table
+Managed Table
+What: Databricks controls BOTH metadata AND actual data files
+CREATE TABLE sales.orders (
+  order_id INT,
+  revenue DOUBLE
+) USING DELTA;
+-- Data stored in Databricks default storage location
+Key Points:
+DROP TABLE → metadata AND data both deleted permanently
+Databricks decides where data lives
+Simple — no location management needed
+
+External Table
+What: Databricks controls ONLY metadata — data lives in YOUR specified location
+CREATE TABLE sales.orders
+USING DELTA
+LOCATION 'abfss://container@storage.blob.core.windows.net/orders';
+-- Data stored in YOUR location
+Key Points:
+DROP TABLE → only metadata deleted, data stays safe!
+You control data location
+Multiple tools can access same data location
+Production best practice ✅
+
+Key Difference
+Managed
+External
+Data location
+Databricks managed
+Your specified path
+DROP TABLE
+Data deleted forever ❌
+Data stays safe ✅
+Best for
+Dev/Testing
+Production
+Data sharing
+Only via Databricks
+Any tool can access
+
+⚠️ Twist Questions Interviewer Will Ask
+Q1: "You dropped a managed table accidentally — can you recover data?"
+Trap: Candidates say "yes using time travel!"
+Correct Answer: NO! DROP TABLE on managed table deletes data permanently. Time travel needs the table to exist. Always use External tables in production for this reason!
+
+Q2: "Both managed and external tables support time travel — true or false?"
+Trap: Candidates say only managed supports it
+Correct Answer: Both support time travel as long as they are Delta format. Format matters, not table type!
+
+Q3: "Your team uses Spark, Hive and Presto all accessing same data — managed or external?"
+Correct Answer: External table — because data sits in a fixed location that all tools can point to. Managed table locks data inside Databricks.
+
+*********************************************
+2️⃣ Autoloader vs COPY INTO
+COPY INTO
+What: SQL command that loads data from cloud storage into Delta table — tracks which files already loaded
+COPY INTO bronze.orders
+FROM 'abfss://container@storage/raw/orders/'
+FILEFORMAT = JSON
+COPY_OPTIONS ('mergeSchema' = 'true');
+Key Points:
+Idempotent — safe to run multiple times, no duplicate loads
+Best for batch loading — run once or scheduled
+Tracks loaded files in metadata
+Simpler setup — pure SQL
+Good up to millions of files
+
+
+Autoloader (cloud storage files only)
+What: Spark Structured Streaming based incremental file ingestion — automatically detects and loads new files as they arrive
+Autoloader designed specifically for ingesting files from cloud storage only - not tables or views 
+
+df = spark.readStream.format("cloudFiles") \
+  .option("cloudFiles.format", "json") \
+  .load("abfss://container@storage/raw/orders/")
+
+df.writeStream.format("delta") \
+  .option("checkpointLocation", "/checkpoints/orders") \
+  .toTable("bronze.orders")
+
+Key Points:
+
+Continuous streaming — detects new files automatically
+Scales to billions of files efficiently
+Checkpoint based — remembers where it stopped
+Schema inference and evolution built in
+Best for real time and large scale ingestion
+
+Key Difference
+
+COPY INTO
+Autoloader
+Type
+Batch SQL command
+Streaming (continuous)
+File detection
+Manual trigger
+Automatic
+Scale
+Millions of files
+Billions of files ✅
+Setup
+Simple SQL
+Structured Streaming code
+Real time
+❌ No
+✅ Yes
+Best for
+Scheduled batch loads
+Continuous ingestion
+⚠️ Twist Questions Interviewer Will Ask
+Q1: "COPY INTO run చేసారు — same files మళ్ళీ load అవుతాయా?"
+Trap: Candidates say yes duplicates will occur
+Correct Answer: No! COPY INTO is idempotent — it tracks already loaded files and skips them automatically!
+Q2: "Autoloader stopped due to cluster crash — restart చేస్తే మళ్ళీ beginning నుండి process అవుతుందా?"
+Trap: Candidates say yes it reprocesses everything
+Correct Answer: No! Autoloader uses checkpoint location — it remembers exactly where it stopped and continues from there only!
+Q3: "10 billion files ingest చేయాలి — COPY INTO or Autoloader?"
+Correct Answer: Autoloader — COPY INTO loads file list into driver memory which fails at massive scale. Autoloader uses cloud native file notifications and scales to billions.
+Q4: "Autoloader and COPY INTO both load same file twice — true or false?"
+Correct Answer: False for both — COPY INTO tracks via metadata, Autoloader tracks via checkpoint. Neither loads same file twice!
+
+from delta table i want to read real time data shall we use Autoloader?
+No, Autoloader is only for cloud files, if you want to read delta table of realtime data then use directly delta like
+df=spark.readStream.format("delta").table("sales.orders")
+df.writeStream.format("delta").toTable("sales.orders_clean")
+
+***********************************************************
+
+3️⃣ MERGE INTO vs INSERT OVERWRITE
+INSERT OVERWRITE
+What: Completely replaces existing table or partition data with new data
+
+-- Overwrite entire table
+INSERT OVERWRITE sales.orders
+SELECT * FROM new_orders;
+
+-- Overwrite specific partition only
+INSERT OVERWRITE sales.orders
+PARTITION (year=2024, month=3)
+SELECT * FROM new_orders
+WHERE year=2024 AND month=3;
+
+Key Points:
+Deletes existing data first — then inserts new
+Entire table or partition replaced
+Fast — simple operation
+No row level comparison
+Good for full refresh scenarios
+
+
+MERGE INTO
+What: Upsert operation — INSERT new records, UPDATE existing records, DELETE removed records — all in one command
+MERGE INTO target t
+USING source s ON t.order_id = s.order_id
+
+WHEN MATCHED AND s.status = 'cancelled' 
+  THEN DELETE
+
+WHEN MATCHED 
+  THEN UPDATE SET t.revenue = s.revenue, 
+                  t.status = s.status
+
+WHEN NOT MATCHED 
+  THEN INSERT (order_id, revenue, status)
+  VALUES (s.order_id, s.revenue, s.status);
+
+
+Key Points:
+Row level precision — updates only changed rows
+Handles insert, update, delete in single operation
+Slower than INSERT OVERWRITE — row comparison needed
+Best for CDC (Change Data Capture) scenarios
+SCD Type 1 and Type 2 implementations use MERGE
+
+Key Difference
+
+INSERT OVERWRITE
+MERGE INTO
+Operation
+Full replaec
+Row level upsert
+Speed
+Fast ✅
+Slower
+Precision
+Partition/Table level
+Row level ✅
+Use case
+Full refresh
+Incremental updates
+DELETE support
+Indirect (overwrite)
+Direct ✅
+Best for
+Daily full loads
+CDC, incremental loads
+⚠️ Twist Questions Interviewer Will Ask
+Q1: "Daily full data వస్తుంది — MERGE INTO use చేస్తారా?"
+Trap: Candidates say yes MERGE is always better
+Correct Answer: No! INSERT OVERWRITE use చేయాలి! Full data వస్తే row level comparison waste. INSERT OVERWRITE is faster and simpler for full refresh!
+Q2: "MERGE INTO లో source లో ఒక customer record రెండుసార్లు ఉంటే ఏం జరుగుతుంది?"
+Correct Answer: Runtime error! MERGE fails if source has duplicate keys matching same target row. You must deduplicate source before MERGE — interviewers love this answer!
+Q3: "INSERT OVERWRITE చేసిన తర్వాత పాత data తిరిగి చూడగలమా?"
+Correct Answer: Yes! Using Delta Time Travel! INSERT OVERWRITE creates new version in transaction log — previous version still accessible via VERSION AS OF!
+Q4: "CDC pipeline కి ఏది use చేస్తారు?"
+Correct Answer: MERGE INTO — because CDC has inserts, updates AND deletes coming from source. MERGE handles all three in single operation!
+******************************************
+
+4️⃣ Unity Catalog vs Hive Metastore
+Hive Metastore
+What: Legacy metadata store in Databricks — stores table definitions, schemas, locations
+Key Points:
+Workspace level only — cannot share across workspaces
+No column level security
+No row level security
+No audit logs
+No ML model governance
+One metastore per workspace
+Still works but old approach
+
+Unity Catalog
+What: Centralized governance layer across ALL workspaces — governs data, ML models, files, functions
+-- Three level namespace
+catalog.schema.table
+main.sales.orders      -- catalog=main, schema=sales, table=orders
+
+-- Grant permissions
+GRANT SELECT ON TABLE main.sales.orders TO `analyst-team`
+
+-- Column level security
+GRANT SELECT (customer_id, revenue) 
+ON TABLE main.sales.orders 
+TO `junior-analysts`  -- They cant see other columns!
+
+-- Row level security
+CREATE ROW FILTER ON main.sales.orders
+FOR `south-team` 
+WHERE region = 'South'  -- They see only South data!
+Key Points:
+Account level — one catalog shared across ALL workspaces
+Column level security ✅
+Row level security ✅
+Full audit logs — who accessed what, when ✅
+Governs Delta tables, ML models, files, notebooks
+Data lineage — track where data came from ✅
+Three level namespace: catalog → schema → table
+Key Difference
+
+Hive Metastore
+Unity Catalog
+Scope
+Single workspace
+All workspaces ✅
+Column security
+❌ No
+✅ Yes
+Row security
+❌ No
+✅ Yes
+Audit logs
+❌ No
+✅ Yes
+ML governance
+❌ No
+✅ Yes
+Data lineage
+❌ No
+✅ Yes
+Namespace
+schema.table
+catalog.schema.table
+Recommended
+Legacy
+Current standard ✅
+⚠️ Twist Questions Interviewer Will Ask
+Q1: "Hive Metastore లో ఒక table create చేసారు — మరో workspace లో కనపడుతుందా?"
+Correct Answer: No! Hive Metastore is workspace scoped. This is exactly why Unity Catalog was introduced — to share across workspaces!
+Q2: "Unity Catalog లేకుండా column level security implement చేయగలమా?"
+Correct Answer: Not natively! Without Unity Catalog you have to create views hiding sensitive columns — manual and complex workaround. Unity Catalog makes it native and simple!
+Q3: "Unity Catalog migrate చేసిన తర్వాత Hive Metastore tables ఏమవుతాయి?"
+Correct Answer: They still exist under hive_metastore catalog — Unity Catalog creates a special catalog called hive_metastore that shows old tables. Migration is gradual, not forced!
+Q4: "Junior analyst కి customer table లో salary column మాత్రమే hide చేయాలి — ఎలా?"
+Correct Answer: Unity Catalog column level permissions!
+GRANT SELECT (customer_id, name, city)
+ON TABLE main.hr.customers
+TO `junior-analysts`;
+-- salary column గురించి mention లేదు = access లేదు!
+
+If i create table in hive_metastore and another user also can able to access that table?
+Yes in Hive metastore by default any user who has workspace access can see and query tables stored in user/hive/warehouse
+there are no restrictions out of the box. You can enable table ACL's (Access control list) manually but it has serious 
+limitations - no column level , no row level, no audit trail securites, and enforcement is inconsistent across cluster types
+
+This is one of the biggest reasos unity - catalog was introduced - where default behaviour is deny. This gives proper enterprise
+grade security which hive metastore simply cannot provide.
+
+**********************************************************************
+
+🎯 Final Interview Strategy
+How to Answer Scenario Questions
+Interviewer asks scenario → You follow this pattern:
+
+Step 1: Identify what type of problem it is
+Step 2: State which option you choose
+Step 3: Give reason WHY
+Step 4: Mention what happens with other option (shows deep knowledge!)
+Step 5: Add one edge case (interviewer will be impressed!)
+Common Trap Pattern Interviewers Use
+They will say:
+"MERGE INTO is always better than INSERT OVERWRITE" 
+→ Agree చేయకండి!
+→ "It depends on use case" అని చెప్పండి
+
+"Managed tables also keep data after DROP"
+→ Agree చేయకండి!
+→ "Only External tables preserve data after DROP" అని చెప్పండి
+
+"Autoloader and COPY INTO are same"
+→ Agree చేయకండి!
+→ Scale, streaming vs batch తేడా చెప్పండి
+ఈ concepts + twist questions తయారు చేసుకుంటే
+Interviewer తప్పకుండా అంటారు —
+"This candidate knows Databricks deeply!" 🔥💪😊
+
+
+Managed Table — Where Does Data Get Stored? 🎯
+Answer Depends on TWO Things
+1. Are you using Unity Catalog or Hive Metastore?
+2. Did you set Storage Location or not?
+Scenario 1 — Hive Metastore (Old Way)
+Default location:
+dbfs:/user/hive/warehouse/database_name.db/table_name
+
+Example:
+CREATE TABLE sales.orders ...
+
+Stored at:
+dbfs:/user/hive/warehouse/sales.db/orders/
+DBFS (Databricks File System):
+DBFS is NOT real storage!
+DBFS is a virtual layer that maps to
+your cloud storage behind the scenes
+
+AWS   → S3 bucket Databricks created
+Azure → ADLS Databricks created
+GCP   → GCS Databricks created
+
+But YOU don't control that bucket!
+Databricks manages it!
+Scenario 2 — Unity Catalog (New Way)
+When you create Unity Catalog Metastore
+you assign a DEFAULT STORAGE LOCATION:
+
+Example:
+abfss://unity-catalog@yourstorage.dfs.core.windows.net/
+
+Managed table gets stored at:
+abfss://unity-catalog@yourstorage.dfs.core.windows.net/
+    └── catalog_name/
+         └── schema_name/
+              └── table_name/
+
+Example:
+main/sales/orders/
+Storage Priority — Unity Catalog
+Unity Catalog checks in this order:
+
+1. Table level storage set?     → Store there
+         ↓ No
+2. Schema level storage set?    → Store there
+         ↓ No
+3. Catalog level storage set?   → Store there
+         ↓ No
+4. Metastore default location   → Store there
+How to Check Where Your Table is Stored
+-- Check table location
+DESCRIBE DETAIL sales.orders;
+
+-- Shows:
+-- location: abfss://container@storage/main/sales/orders
+-- type: managed
+
+-- Or
+DESCRIBE EXTENDED sales.orders;
+Key Point to Remember ⚠️
+Managed Table:
+→ You don't specify location
+→ Databricks automatically decides location
+→ DROP TABLE = data deleted from that location!
+
+This is exactly why Production teams
+prefer External Tables —
+because they explicitly control
+WHERE data lives!
+🎯 One Line Interview Answer
+"Managed table location depends on setup — in Hive Metastore it goes to dbfs:/user/hive/warehouse/ which maps to Databricks managed cloud storage. In Unity Catalog it follows priority order — table level, then schema level, then catalog level, then metastore default storage location. Either way Databricks controls the location — and DROP TABLE permanently deletes data from that location — which is why External Tables are preferred in production!"
+
+
+*****************************************************************************
