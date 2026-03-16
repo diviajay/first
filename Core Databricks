@@ -1958,3 +1958,1466 @@ Azure Storage → Storage Credential
 🎯 Interview Answer
 "There are two ways to connect Azure Storage to Databricks. Old way is DBFS Mount — create a Service Principal in Azure, give it storage access, store credentials in Databricks Secret Scope, and mount using dbutils.fs.mount to a /mnt/ path. Simple but has no security governance — anyone on the cluster sees the data.
 New recommended way is Unity Catalog External Location — create a Storage Credential with Azure Managed Identity or Service Principal, create an External Location pointing to your ADLS path, then create External Tables on top. Now all access goes through Unity Catalog — column level security, row level security, audit logs, cross workspace access — everything governed properly. Databricks is actively discouraging DBFS mounts in favor of this approach!"
+
+
+****************************************************************
+
+Structured streaming vs Batch processing?
+Batch processing - It process a fixed set of data at scheduled intervals - data collected over a period then processed
+					all at once.
+data accumulates whole day
+|
+night 12am - job triggers
+|
+real all data at once
+|
+processes entire dataset
+|
+writes output
+|
+job finishes
+
+example : banking statement generated every month
+			salary processed every month 
+			daily sales report
+for this late data = late decisions
+simple to build and maintain
+
+
+
+structured streaming - It process data continuosuly as it arrives  - treating live data stream as an infinite table 
+that keeps growing
+
+New data arrives every second
+|
+spark detects new data immediately
+|
+processes that micro batch
+|
+writes output immediately
+|
+waits for next data
+|
+process again
+|
+never stops - runs continously
+example : fraud detection, live cricket score, banking transactions, swiggy or online orders
+
+**************************************************************************
+
+Key Concepts in Structured Streaming
+Trigger — How Often to Process?
+# Process as fast as possible (default)
+.trigger(processingTime='0 seconds')
+
+# Process every 30 seconds
+.trigger(processingTime='30 seconds')
+
+# Process every 5 minutes
+.trigger(processingTime='5 minutes')
+
+# Process once and stop (like batch!)
+.trigger(once=True)
+
+# Process one batch and stop (newer way)
+.trigger(availableNow=True)
+
+Output Modes — How to Write?
+# Append — only new rows written
+# Good for: event data, logs
+.outputMode("append")
+
+# Complete — entire result rewritten
+# Good for: aggregations, counts
+.outputMode("complete")
+
+# Update — only changed rows written
+# Good for: running totals
+.outputMode("update")
+Checkpoint — Most Important! ⚠️
+# Checkpoint saves streaming progress!
+.option("checkpointLocation", "/checkpoints/mystream/")
+
+Without checkpoint:
+→ Cluster crashes
+→ Stream restarts from BEGINNING!
+→ Duplicate data! 😱
+
+With checkpoint:
+→ Cluster crashes
+→ Stream restarts from where it STOPPED!
+→ No duplicate data! ✅
+→ Exactly once processing!
+Watermark — Handle Late Data
+# What if data arrives late?
+# Example: Event happened at 10AM
+#          But reached system at 10:30AM!
+
+df.withWatermark("event_time", "30 minutes") \
+  .groupBy(
+      window("event_time", "10 minutes"),
+      "region"
+  ).sum("revenue")
+
+# Means:
+# Accept late data up to 30 minutes
+# After 30 minutes → ignore late records
+Batch vs Streaming — Side by Side
+
+Batch
+Structured Streaming
+Data
+Fixed dataset
+Infinite stream
+When runs
+Scheduled
+Continuously
+Latency
+Hours/Minutes
+Seconds/Milliseconds
+Cost
+Lower
+Higher
+Complexity
+Simple
+Complex
+Checkpoint
+Not needed
+Must have!
+Use case
+Reports, ETL
+Fraud, alerts, live
+Job ends?
+✅ Yes
+❌ Never
+Trigger
+External scheduler
+Internal trigger
+Reprocess
+Easy
+Need checkpoint reset
+When to Use What?
+Use BATCH when:
+✅ Daily/weekly reports
+✅ End of day reconciliation
+✅ Historical data processing
+✅ Large data transformations
+✅ Cost is priority
+✅ Small delay acceptable
+
+Use STREAMING when:
+✅ Fraud detection
+✅ Real time dashboards
+✅ Live monitoring
+✅ IoT data
+✅ Instant alerts needed
+✅ Data freshness critical
+Interesting — Trigger availableNow
+# This is HYBRID approach!
+# Streaming job but processes
+# only available data and stops!
+
+df.writeStream \
+    .trigger(availableNow=True) \
+    .format("delta") \
+    .option("checkpointLocation", "/checkpoints/") \
+    .toTable("main.sales.orders")
+
+Benefits:
+✅ Incremental like streaming
+✅ Stops like batch
+✅ Cheaper than continuous streaming
+✅ Perfect for hourly scheduled runs
+✅ Uses checkpoint — no reprocessing!
+Delta Table as Streaming Source
+# Delta table itself can be streamed!
+# Read only NEW rows added to Delta table
+
+df = spark.readStream \
+    .format("delta") \
+    .table("main.bronze.raw_events")
+
+# Every time new rows added to bronze table
+# This stream automatically picks them up!
+# Perfect for medallion architecture!
+Medallion Architecture with Both
+Raw Files (S3/ADLS)
+      ↓ Autoloader (Streaming)
+Bronze Table (raw data)
+      ↓ Streaming or Batch
+Silver Table (cleaned data)
+      ↓ Batch (scheduled)
+Gold Table (aggregated/business ready)
+      ↓
+Power BI / Reports
+🎯 Interview Answer
+"Batch processing reads a fixed dataset at scheduled intervals — like running a nightly ETL job that processes entire day's data at once. Simple, cost efficient but data is always delayed.
+Structured Streaming processes data continuously as it arrives — treating the incoming data as an infinite growing table. Spark detects new data, processes it in micro batches and writes output immediately with seconds of latency. Key concepts are checkpoint location which ensures fault tolerance and exactly once processing, watermark which handles late arriving data, trigger which controls processing frequency, and output mode which controls how results are written.
+In Databricks the recommended pattern is Medallion Architecture — Autoloader streams raw files into Bronze layer, streaming or batch cleans data into Silver, and batch aggregations produce Gold layer for business reporting. Choice between batch and streaming depends on how fresh the data needs to be and the cost tolerance of the project!"
+
+
+trigger(once=True) vs trigger(availableNow=True) 🎯
+Simple One Line Difference
+trigger(once=True)        → Process ALL pending data in ONE single batch → Stop
+trigger(availableNow=True) → Process ALL pending data in MULTIPLE batches → Stop
+trigger(once=True) — Old Way
+How it Works
+Pending data in source:
+File1 → 1GB
+File2 → 1GB
+File3 → 1GB
+File4 → 1GB
+Total → 4GB pending
+
+trigger(once=True):
+→ Reads ALL 4GB in ONE single batch
+→ Processes everything together
+→ Stops
+
+ONE massive batch = done!
+Code Example
+df = spark.readStream \
+    .format("cloudFiles") \
+    .option("cloudFiles.format", "csv") \
+    .option("header", "true") \
+    .load("abfss://container@storage/raw/")
+
+df.writeStream \
+    .format("delta") \
+    .option("checkpointLocation", 
+            "abfss://container@storage/checkpoints/") \
+    .trigger(once=True) \          # ONE batch all data
+    .toTable("main.bronze.orders")
+Problem with once=True
+Scenario:
+→ 100GB pending data
+→ trigger(once=True) loads ALL 100GB
+   in single batch!
+
+Problems:
+❌ Needs huge cluster to handle 100GB at once
+❌ If job fails at 99GB → restart from beginning!
+   (checkpoint saved only at end of full batch)
+❌ Memory issues for large data
+❌ Very slow — one massive operation
+❌ Deprecated now! Databricks discouraging use
+trigger(availableNow=True) — New Way ✅
+How it Works
+Same pending data:
+File1 → 1GB
+File2 → 1GB
+File3 → 1GB
+File4 → 1GB
+Total → 4GB pending
+
+trigger(availableNow=True):
+→ Batch 1: Process File1 (1GB) → checkpoint saved ✅
+→ Batch 2: Process File2 (1GB) → checkpoint saved ✅
+→ Batch 3: Process File3 (1GB) → checkpoint saved ✅
+→ Batch 4: Process File4 (1GB) → checkpoint saved ✅
+→ No more data → STOP!
+
+MULTIPLE small batches = done!
+Code Example
+df = spark.readStream \
+    .format("cloudFiles") \
+    .option("cloudFiles.format", "csv") \
+    .option("header", "true") \
+    .load("abfss://container@storage/raw/")
+
+df.writeStream \
+    .format("delta") \
+    .option("checkpointLocation",
+            "abfss://container@storage/checkpoints/") \
+    .trigger(availableNow=True) \   # Multiple batches
+    .toTable("main.bronze.orders")
+Why availableNow is Better
+Same 100GB scenario:
+→ Batch 1: 10GB → checkpoint ✅
+→ Batch 2: 10GB → checkpoint ✅
+→ Batch 3: 10GB → checkpoint ✅
+...
+→ Batch 10: 10GB → checkpoint ✅
+→ Stop!
+
+Benefits:
+✅ Smaller cluster needed
+✅ Checkpoint saved after EACH batch
+✅ Job fails at batch 7?
+   → Restart from batch 8!
+   → Not from beginning!
+✅ Better memory management
+✅ More reliable
+✅ Databricks recommended approach!
+Real World Example — Daily Pipeline
+Scenario:
+Files land in S3 throughout the day
+Every hour you want to process new files only
+
+Schedule: Run every hour using Databricks Jobs
+
+Using trigger(once=True):
+8AM  → All files since last run → 1 MASSIVE batch
+9AM  → All files since last run → 1 MASSIVE batch
+10AM → All files since last run → 1 MASSIVE batch
+
+Problem:
+→ If 50 files arrived between 8-9AM
+→ All 50 processed in single batch
+→ Memory pressure!
+→ Failure = restart all 50!
+
+Using trigger(availableNow=True):
+8AM  → File1 batch → File2 batch → ... → File50 batch → Stop
+9AM  → File51 batch → File52 batch → ... → Stop
+10AM → next files → Stop
+
+Benefits:
+→ Each file in own batch
+→ Failure at File30?
+→ Restart from File31!
+→ Much safer! ✅
+Comparison Table
+
+trigger(once=True)
+trigger(availableNow=True)
+Batches
+Single batch
+Multiple batches
+Checkpoint
+End of job only
+After each batch ✅
+Failure recovery
+Restart everything
+Restart from last batch ✅
+Memory
+High pressure
+Low pressure ✅
+Large data
+❌ Risky
+✅ Safe
+Speed
+Slower
+Faster ✅
+Status
+Deprecated ⚠️
+Recommended ✅
+🎯 Interview Answer
+"Both trigger once and availableNow process all pending data and stop — making them behave like batch but with streaming benefits like checkpointing and incremental processing.
+trigger once=True processes everything in a single massive batch and saves checkpoint only at the end — so if job fails you restart from beginning which is risky for large data.
+trigger availableNow=True processes pending data in multiple smaller batches saving checkpoint after each batch — so failure recovery restarts from last successful batch not from beginning. It needs less memory, is more reliable and is the current Databricks recommended approach. trigger once is now deprecated in favor of availableNow!"
+
+**********************
+
+we are having autoloader right when files arrived automatically it will execute then why the use of these triggers?
+Excellent thinking - this is a very smart question
+AUTOLOADER Has two ways to run:
+MODE 1 : CONTINOUS STREAMING
+Always running
+file arrive -> immediately process
+never stops
+**More billing (cluster runs 24/7)
+
+
+MODE 2 : Scheduled Batch (trigger once/ availableNow)
+Runs on schedule
+processes pending files
+stops
+starts again on next schedule
+**Less billing (cluster runs only scheduled times)
+
+
+Simple way to remember:
+CAN YOU AFFORD TO WAIT 1 HOUR FOR DATA?
+YES - go with trigger options - cheaper
+NO - go with continous streaming
+
+************************************************
+Output modes in structured streaming?
+output mode tells spart what to write to sink after each microbatch processing
+APPEND  - write only new rows (only newly dded rows since last trigger are written to output - existing rows never touched)
+COMPLETE - write entire result everytime(Entire result table is rewritten to output after every micro batch - every single row every time)
+UPDATE - write only changed rows (only rows that were updated or newly added since last trigger are written - unchanged rows skipped)
+
+For example if any row deleted in my source then?
+APPEND AND UPDATE MODE - DELETES COMPLETELY IGNORED
+Both above modes have no concept of deletion.
+Only COMPLETE mode reflects deletions ( because it rewrites everything)
+
+*********************************************************
+
+Writestream is different from normal write
+NORMAL write -> df.write -> .saveAsTable() or .save()
+streaming write -> df.writeStream -> .toTable() or .start("path")) (delta recommended)
+
+saveAsTable is batch only. Not for streaming
+
+simple rule :
+streaming always :
+.toTable() for named delta table
+.start() for path based output
+
+never use in streaming:
+.saveAsTable()
+.save()
+
+*******************************************************************
+
+Complete Guide to Checkpoint in Structured Streaming 🎯
+What is Checkpoint?
+"Checkpoint is a fault tolerance mechanism in Structured Streaming that saves streaming progress to cloud storage — so if job fails or restarts, it continues from exactly where it stopped without reprocessing old data or losing new data"
+Simple Analogy 📖
+Think of reading a BIG book:
+
+Without Bookmark (No Checkpoint):
+→ Reading page 450...
+→ Phone rings, book closes!
+→ Come back → Start from Page 1 again! 😱
+
+With Bookmark (Checkpoint):
+→ Reading page 450...
+→ Phone rings, book closes!
+→ Come back → Open at Page 450! ✅
+→ Continue from exactly where stopped!
+
+Checkpoint = Bookmark for your streaming job!
+What Checkpoint Stores Internally
+Checkpoint folder structure:
+
+/checkpoints/my_stream/
+├── commits/
+│     ├── 0    → Batch 0 committed
+│     ├── 1    → Batch 1 committed
+│     └── 2    → Batch 2 committed
+│
+├── offsets/ (offset is a pointer that tells spark exactly what data was read in each batch -like a bpokmark that marks exact position in data source)
+│     ├── 0    → What data batch 0 read
+│     ├── 1    → What data batch 1 read
+│     └── 2    → What data batch 2 read
+│		example : you watched youtube till 45:32, youtube saves :stopped at 45:32, next time -> continous from 45:32 (exact position marker)
+├── sources/
+│     └── 0/   → Source specific metadata
+│               (which files already processed)
+│
+└── metadata   → Stream configuration info
+How Checkpoint Works Step by Step
+Batch 1:
+→ New files: file1.json, file2.json
+→ Spark reads them
+→ Processes data
+→ Writes to Delta table
+→ Checkpoint saves:
+   "Batch 1 done — file1, file2 processed" ✅
+
+Batch 2:
+→ New files: file3.json, file4.json
+→ Spark reads checkpoint first
+→ Knows file1, file2 already done
+→ Processes ONLY file3, file4
+→ Checkpoint updates:
+   "Batch 2 done — file3, file4 processed" ✅
+
+Job CRASHES during Batch 3!
+→ file5.json partially processed! 😱
+
+Job Restarts:
+→ Reads checkpoint
+→ Sees Batch 2 was last successful
+→ Rolls back partial Batch 3 write
+→ Reprocesses file5.json fresh! ✅
+→ No duplicate data!
+→ No data loss!
+Checkpoint Code
+df = spark.readStream \
+    .format("cloudFiles") \
+    .option("cloudFiles.format", "json") \
+    .load("abfss://container@storage/raw/")
+
+df.writeStream \
+    .format("delta") \
+    .outputMode("append") \
+    .option("checkpointLocation",
+            "abfss://container@storage/checkpoints/orders/") \
+    .trigger(availableNow=True) \
+    .toTable("main.bronze.orders")
+Checkpoint Location Rules ⚠️
+Rule 1: Must be in persistent storage
+✅ ADLS Gen2
+✅ S3
+✅ DBFS
+❌ Local disk (lost on restart!)
+
+Rule 2: Each stream MUST have
+        its OWN checkpoint location!
+
+Stream 1: /checkpoints/orders/    ✅
+Stream 2: /checkpoints/customers/ ✅
+Stream 3: /checkpoints/products/  ✅
+
+NEVER share checkpoint between streams!
+Stream 1: /checkpoints/shared/    ❌
+Stream 2: /checkpoints/shared/    ❌
+→ Corrupts both streams! 😱
+
+Rule 3: NEVER delete checkpoint!
+→ Job thinks it is first run!
+→ Reprocesses all data!
+→ Duplicates! 😱
+
+Rule 4: NEVER change checkpoint path!
+→ Same result as deleting!
+→ All data reprocessed!
+Checkpoint vs Without Checkpoint
+WITHOUT Checkpoint:
+Day 1: Process file1, file2, file3 ✅
+Day 2: Cluster restarts!
+       Process file1, file2, file3 again! 😱
+       DUPLICATES in output table!
+
+WITH Checkpoint:
+Day 1: Process file1, file2, file3 ✅
+       Checkpoint: "file1,2,3 done"
+Day 2: Cluster restarts!
+       Read checkpoint → file1,2,3 done
+       Process only NEW files! ✅
+       No duplicates!
+Scenario Based Questions 🎯
+Scenario 1 — Checkpoint Deleted Accidentally
+Question:
+"Your team member deleted checkpoint folder
+ thinking it was temporary files.
+ What happens when job restarts?"
+
+Answer:
+→ Job treats it as BRAND NEW stream
+→ Reprocesses ALL files from beginning
+→ Massive duplicates in output table!
+
+Fix:
+Step 1: Stop streaming job immediately
+Step 2: Truncate or drop output table
+Step 3: Recreate checkpoint by rerunning
+        from scratch with fresh output table
+Step 4: Never give checkpoint folder
+        delete permissions to everyone!
+Scenario 2 — Two Streams Same Checkpoint
+Question:
+"You have two streaming jobs
+ both pointing to same checkpoint location.
+ What happens?"
+
+Answer:
+→ Stream 1 writes its progress to checkpoint
+→ Stream 2 reads Stream 1 progress
+→ Stream 2 thinks files are already processed!
+→ Stream 2 skips data it should process!
+→ DATA LOSS! 😱
+
+Fix:
+Each stream → its own checkpoint location!
+/checkpoints/stream1/  ← Stream 1
+/checkpoints/stream2/  ← Stream 2
+Scenario 3 — Schema Changed in Source
+Question:
+"Your source JSON files added a new column.
+ Streaming job running with old checkpoint.
+ What happens?"
+
+Answer:
+→ Old checkpoint has old schema saved
+→ New column arrives
+→ Two possibilities:
+
+If cloudFiles.schemaEvolutionMode = "addNewColumns":
+→ New column automatically added ✅
+→ Checkpoint updated with new schema ✅
+
+If schemaEvolutionMode not set:
+→ Stream FAILS with schema mismatch! ❌
+
+Fix:
+df = spark.readStream \
+    .format("cloudFiles") \
+    .option("cloudFiles.format", "json") \
+    .option("cloudFiles.schemaEvolutionMode",
+            "addNewColumns") \       ← Handle schema changes!
+    .option("cloudFiles.schemaLocation",
+            "/checkpoints/schema/") \
+    .load("abfss://path/raw/")
+Scenario 4 — Change Query Logic
+Question:
+"Streaming job running for 3 months.
+ You want to add new transformation
+ to existing query.
+ Old checkpoint exists.
+ What should you do?"
+
+Answer:
+→ Small changes (add column, filter)
+  → Can reuse old checkpoint sometimes
+
+→ Big changes (change aggregation,
+  change groupBy, change join)
+  → MUST delete checkpoint!
+  → Must reprocess data from beginning!
+
+Why?
+Checkpoint stores query plan!
+Changed query ≠ stored query plan
+= Stream fails or wrong results!
+
+Best Practice:
+→ New checkpoint path for major query changes
+→ New output table location
+→ Reprocess historical data
+Scenario 5 — Checkpoint in Local Storage
+Question:
+"Developer set checkpoint to local path:
+ .option('checkpointLocation', '/tmp/checkpoint/')
+ What is the problem?"
+
+Answer:
+→ /tmp/ is local disk on driver node
+→ When cluster restarts
+  → New driver node spins up
+  → /tmp/ is EMPTY!
+  → Checkpoint lost!
+  → Job reprocesses everything!
+  → Duplicates! 😱
+
+Fix:
+Always use persistent cloud storage!
+✅ abfss://container@storage/checkpoints/
+✅ s3://bucket/checkpoints/
+✅ dbfs:/checkpoints/
+❌ /tmp/checkpoint/
+❌ /local/path/
+Scenario 6 — How to Reset Stream Intentionally
+Question:
+"You want to reprocess ALL data
+ from beginning intentionally.
+ How do you do it?"
+
+Answer:
+Step 1: Stop streaming job
+Step 2: Delete checkpoint folder
+        dbutils.fs.rm(
+          "/checkpoints/orders/",
+          recurse=True
+        )
+Step 3: Truncate output table
+        spark.sql("TRUNCATE TABLE main.bronze.orders")
+Step 4: Restart streaming job
+→ Treats as fresh start
+→ Reprocesses all files!
+Scenario 7 — Multiple Streams Same Output Table
+Question:
+"Can two streaming jobs write
+ to same Delta output table?"
+
+Answer:
+→ YES possible with Delta Lake!
+→ Delta handles concurrent writes
+→ But each stream MUST have
+  different checkpoint location!
+
+Stream 1:
+.option("checkpointLocation", "/checkpoints/stream1/")
+.toTable("main.bronze.orders")  ← Same table!
+
+Stream 2:
+.option("checkpointLocation", "/checkpoints/stream2/")
+.toTable("main.bronze.orders")  ← Same table!
+
+✅ Works because Delta ACID handles
+   concurrent writes safely!
+Scenario 8 — Checkpoint Size Growing Too Large
+Question:
+"After 6 months checkpoint folder
+ is 50GB in size! What to do?"
+
+Answer:
+→ Checkpoint accumulates metadata over time
+→ Old commit logs pile up
+
+Fix:
+Databricks automatically manages this
+via checkpoint cleanup
+
+But if manual cleanup needed:
+→ Never delete entire checkpoint!
+→ Only old commit files can be cleaned
+→ Better to let Databricks manage automatically
+
+Best Practice:
+→ Monitor checkpoint size monthly
+→ For very long running streams
+  → Plan periodic stream reset
+    with fresh checkpoint
+Summary Table
+Concept
+Key Point
+What it stores
+Batch progress, file offsets, schema
+Location
+Always persistent cloud storage
+One per stream
+Never share between streams
+Delete = danger
+Full reprocess + duplicates
+Schema change
+May need checkpoint reset
+Query change
+Major changes need new checkpoint
+Multiple streams same table
+OK with different checkpoints
+🎯 Interview Answer
+"Checkpoint is the fault tolerance backbone of Structured Streaming. It saves batch progress, file offsets and schema information to persistent cloud storage after every successful micro batch. If a job fails or cluster restarts, it reads the checkpoint and continues from exactly the last successful batch — ensuring exactly once processing with no data loss or duplicates.
+Key rules are — always store checkpoint in persistent cloud storage never local disk, each stream must have its own unique checkpoint location, never delete checkpoint accidentally as it causes full reprocessing and duplicates, and major query logic changes require a fresh checkpoint and output table.
+Common interview scenarios are accidentally deleted checkpoint causing duplicates, shared checkpoint causing data loss, schema evolution requiring schemaEvolutionMode option, and local checkpoint path getting lost on cluster restart — all pointing to checkpoint being the most critical configuration in any streaming pipeline!"
+
+Yes! Exactly Correct! 🎯
+What Periodic Stream Reset Means
+Periodic Stream Reset = 
+Delete old checkpoint folder
+     +
+Create fresh checkpoint (new path)
+     +
+Reprocess ALL data from beginning
+When and Why Companies Do This?
+Reason 1 — Checkpoint Folder Too Large
+6 months of streaming:
+→ Checkpoint grows 50GB+
+→ Slows down stream startup
+→ Too much metadata to read
+→ Reset and start fresh!
+Reason 2 — Major Query Logic Changed
+Old query: Simple SELECT columns
+New query: Added complex aggregations,
+           new joins, new transformations
+
+Old checkpoint has old query plan saved
+New query ≠ old query plan
+→ Stream fails or gives wrong results!
+→ Must reset checkpoint!
+Reason 3 — Output Table Corrupted
+Something went wrong:
+→ Duplicates in output table
+→ Wrong transformations applied
+→ Bad data written
+
+Fix:
+→ Reset checkpoint
+→ Truncate output table
+→ Reprocess clean data from scratch!
+Reason 4 — Source Data Backfilled
+Historical data added to source:
+→ Old files updated with corrections
+→ Missing files added retroactively
+
+Checkpoint thinks old files already done!
+→ Will skip corrected files!
+→ Must reset to pick up corrections!
+Step by Step — How to Do Reset
+# Step 1: Stop streaming job first!
+# Databricks UI → Jobs → Stop
+
+# Step 2: Delete old checkpoint
+dbutils.fs.rm(
+    "abfss://container@storage/checkpoints/orders_old/",
+    recurse=True
+)
+
+# Step 3: Truncate output table
+spark.sql("TRUNCATE TABLE main.bronze.orders")
+# OR drop and recreate
+spark.sql("DROP TABLE IF EXISTS main.bronze.orders")
+
+# Step 4: Start stream with NEW checkpoint path
+df.writeStream \
+    .format("delta") \
+    .outputMode("append") \
+    .option("checkpointLocation",
+            "abfss://container@storage/checkpoints/orders_v2/") \
+    .trigger(availableNow=True) \
+    .toTable("main.bronze.orders")
+
+# Now processes ALL data from beginning! ✅
+Important Warning ⚠️
+Before Reset — Always ask:
+
+1. How much historical data exists?
+   → 1TB data = reset takes hours!
+   → Plan for downtime!
+
+2. Is output table used by others?
+   → Truncating = downstream jobs fail!
+   → Coordinate with team!
+
+3. Is reprocessing safe?
+   → Duplicate risk if not truncated first!
+   → Always truncate before reset!
+
+ORDER MATTERS:
+Step 1: Stop job        ← FIRST!
+Step 2: Truncate table  ← SECOND!
+Step 3: Delete checkpoint ← THIRD!
+Step 4: Restart job     ← LAST!
+Naming Convention Best Practice
+Instead of deleting old checkpoint:
+Keep old + create versioned new!
+
+/checkpoints/orders_v1/  ← old (keep for reference)
+/checkpoints/orders_v2/  ← new reset ✅
+/checkpoints/orders_v3/  ← next reset
+
+Benefits:
+→ Can go back if new version has issues
+→ Audit trail of resets
+→ Safe rollback option!
+🎯 One Line Answer
+"Yes exactly! Periodic stream reset means stopping the job, truncating the output table, deleting old checkpoint, and restarting with a new checkpoint path — forcing full reprocess from beginning. Best practice is versioning checkpoint folders like v1, v2, v3 instead of deleting — so you can rollback if new reset has issues!"
+
+******************************************************
+
+cloudFiles.schemaEvolutionMode — Complete Guide 🎯
+What is Schema Evolution in Streaming?
+Day 1: Source JSON files have:
+{ "order_id": 1, "amount": 100 }
+
+Day 30: Source JSON files NOW have:
+{ "order_id": 1, "amount": 100, "discount": 10 }
+                                  ↑
+                             NEW COLUMN ADDED!
+
+Question: What should streaming job do?
+→ Fail? Ignore? Accept? Rescue?
+
+Answer depends on schemaEvolutionMode!
+Setup — Where to Put It
+df = spark.readStream \
+    .format("cloudFiles") \
+    .option("cloudFiles.format", "json") \
+    .option("cloudFiles.schemaLocation",
+            "abfss://container@storage/schema/orders/") \
+    .option("cloudFiles.schemaEvolutionMode",
+            "addNewColumns") \         ← SET HERE!
+    .load("abfss://container@storage/raw/orders/")
+schemaLocation — Why Needed?
+Before understanding modes
+understand schemaLocation first!
+
+schemaLocation:
+→ Where Autoloader SAVES detected schema
+→ Autoloader reads files → detects schema
+→ Saves that schema to schemaLocation
+→ Next run → reads saved schema first
+→ Compares with new files schema
+
+Without schemaLocation:
+→ Autoloader detects schema fresh every run
+→ Slow!
+→ Schema inconsistency possible!
+
+With schemaLocation:
+→ Schema cached and reused ✅
+→ Evolution tracked properly ✅
+→ REQUIRED when using schemaEvolutionMode!
+Four Schema Evolution Modes
+Mode 1 — addNewColumns (Most Common ✅)
+What it Does
+New column arrives in source?
+→ Automatically ADD that column
+   to output table!
+→ Old records get NULL for new column
+→ Stream continues without interruption!
+Example
+Existing schema:
+order_id  INT
+amount    DOUBLE
+
+New file arrives with extra column:
+order_id  INT
+amount    DOUBLE
+discount  DOUBLE  ← NEW!
+
+addNewColumns behavior:
+→ Detects discount is new column
+→ Automatically adds discount to table
+→ Old records: discount = NULL
+→ New records: discount = actual value
+→ Stream keeps running! ✅
+Code
+df = spark.readStream \
+    .format("cloudFiles") \
+    .option("cloudFiles.format", "json") \
+    .option("cloudFiles.schemaLocation",
+            "abfss://container@storage/schema/") \
+    .option("cloudFiles.schemaEvolutionMode",
+            "addNewColumns") \
+    .load("abfss://container@storage/raw/")
+When to Use
+✅ Source adds new columns over time
+✅ You want zero interruption streaming
+✅ Bronze layer ingestion
+✅ You don't know future schema changes
+✅ Most production streaming pipelines
+Mode 2 — none (Strict Mode)
+What it Does
+New column arrives?
+→ IGNORE completely!
+→ New column NOT added to output!
+→ Stream continues but new column lost!
+
+Existing column missing?
+→ NULL values for that column
+
+Data type changes?
+→ Stream FAILS!
+Example
+Existing schema:
+order_id  INT
+amount    DOUBLE
+
+New file arrives:
+order_id  INT
+amount    DOUBLE
+discount  DOUBLE  ← NEW!
+
+none behavior:
+→ discount column IGNORED!
+→ Not written to output table
+→ Data silently dropped! ⚠️
+
+Output always stays:
+order_id  INT
+amount    DOUBLE
+Code
+df = spark.readStream \
+    .format("cloudFiles") \
+    .option("cloudFiles.format", "json") \
+    .option("cloudFiles.schemaLocation",
+            "abfss://container@storage/schema/") \
+    .option("cloudFiles.schemaEvolutionMode",
+            "none") \
+    .load("abfss://container@storage/raw/")
+When to Use
+✅ Schema is FIXED — never changes
+✅ Downstream systems expect exact schema
+✅ Silver/Gold layer processing
+✅ When extra columns should be ignored
+✅ Strict schema contract environments
+
+⚠️ Warning:
+New columns silently dropped!
+No error — just data loss!
+Easy to miss!
+Mode 3 — failOnNewColumns (Safest ✅)
+What it Does
+New column arrives?
+→ Stream FAILS immediately! ❌
+→ Raises error loudly!
+→ Forces team to review schema change
+→ Manual intervention required
+→ Resume only after explicit decision!
+Example
+Existing schema:
+order_id  INT
+amount    DOUBLE
+
+New file arrives:
+order_id  INT
+amount    DOUBLE
+discount  DOUBLE  ← NEW!
+
+failOnNewColumns behavior:
+→ Detects new column
+→ FAILS with error:
+  "New column 'discount' detected!
+   Stream stopped!"
+→ Team gets alert
+→ Team reviews: should we add this column?
+→ If yes → change mode to addNewColumns
+→ If no → filter column at source
+→ Restart stream
+Code
+df = spark.readStream \
+    .format("cloudFiles") \
+    .option("cloudFiles.format", "json") \
+    .option("cloudFiles.schemaLocation",
+            "abfss://container@storage/schema/") \
+    .option("cloudFiles.schemaEvolutionMode",
+            "failOnNewColumns") \
+    .load("abfss://container@storage/raw/")
+When to Use
+✅ Production critical pipelines
+✅ Financial or regulated data
+✅ Schema changes need approval process
+✅ Team wants visibility of ALL changes
+✅ When silent data loss is unacceptable
+✅ Governance heavy environments
+Mode 4 — rescue (Most Powerful ✅)
+What it Does
+New column arrives?
+→ Does NOT add new column to table
+→ Instead captures ALL unexpected data
+   in special column called:
+   _rescued_data
+→ Nothing is lost!
+→ Stream continues!
+→ You can parse _rescued_data later!
+Example
+Existing schema:
+order_id  INT
+amount    DOUBLE
+
+New file arrives:
+order_id  INT
+amount    DOUBLE
+discount  DOUBLE   ← NEW!
+promo_code STRING  ← NEW!
+
+rescue behavior:
+Output table:
+order_id | amount | _rescued_data
+---------|--------|----------------------------------
+1        | 100    | {"discount":10, "promo_code":"SAVE10"}
+2        | 200    | {"discount":20, "promo_code":"FLAT20"}
+
+→ New columns not added to main schema
+→ But data NOT lost!
+→ Captured in _rescued_data as JSON string
+→ Parse later when needed!
+Code
+df = spark.readStream \
+    .format("cloudFiles") \
+    .option("cloudFiles.format", "json") \
+    .option("cloudFiles.schemaLocation",
+            "abfss://container@storage/schema/") \
+    .option("cloudFiles.schemaEvolutionMode",
+            "rescue") \
+    .load("abfss://container@storage/raw/")
+Parse Rescued Data Later
+# Extract rescued data when needed
+from pyspark.sql.functions import from_json, col
+
+rescued_schema = "discount DOUBLE, promo_code STRING"
+
+df_parsed = df.withColumn(
+    "rescued_parsed",
+    from_json(col("_rescued_data"), rescued_schema)
+).select(
+    "order_id",
+    "amount",
+    col("rescued_parsed.discount").alias("discount"),
+    col("rescued_parsed.promo_code").alias("promo_code")
+)
+When to Use
+✅ Cannot afford ANY data loss
+✅ Schema changes unpredictable
+✅ Want to investigate unexpected data
+✅ Compliance — must capture everything
+✅ Good for Bronze layer safety net
+All Modes — Side by Side
+Source sends new column "discount":
+
+addNewColumns  → Add discount to table ✅
+               → Old rows get NULL
+               → Stream continues ✅
+
+none           → Ignore discount ⚠️
+               → Data silently dropped
+               → Stream continues ✅
+
+failOnNewColumns → FAIL loudly ❌
+                → Team notified
+                → Manual fix needed
+
+rescue         → Keep discount in
+               → _rescued_data column ✅
+               → Nothing lost ✅
+               → Stream continues ✅
+Comparison Table
+Mode
+New Column
+Stream Continues
+Data Lost
+Best For
+addNewColumns
+Added automatically
+✅ Yes
+❌ No
+Bronze layer
+none
+Ignored
+✅ Yes
+⚠️ Yes silently
+Fixed schema
+failOnNewColumns
+Stream fails
+❌ No
+❌ No
+Governed pipelines
+rescue
+Captured in _rescued_data
+✅ Yes
+❌ No
+Zero data loss
+Real World Usage Pattern
+Bronze Layer (Raw Ingestion):
+→ addNewColumns or rescue
+→ Capture everything!
+→ Zero interruption!
+
+Silver Layer (Cleaned Data):
+→ failOnNewColumns or none
+→ Schema must be controlled!
+→ No surprises allowed!
+
+Gold Layer (Business Ready):
+→ none
+→ Fixed schema for BI tools!
+→ Strict contract!
+🎯 Interview Answer
+"cloudFiles.schemaEvolutionMode controls how Autoloader handles schema changes in incoming files.
+addNewColumns automatically adds new columns to output table keeping stream running — best for Bronze layer ingestion.
+none ignores new columns silently — stream continues but new column data is lost — good for fixed schema environments but risky due to silent data loss.
+failOnNewColumns stops stream immediately when new column detected — forces team to review change before resuming — best for governed production pipelines where schema changes need approval.
+rescue is most powerful — new columns not added to main schema but ALL unexpected data captured in special _rescued_data JSON column — zero data loss, stream continues, parse rescued data later when needed.
+Typical pattern is rescue or addNewColumns for Bronze raw ingestion, failOnNewColumns for Silver controlled processing, and none for Gold fixed schema layer!"
+
+***********************************************
+
+														DELTA LIVE TABLES
+Delta Live Tables (DLT) — Complete Guide 🎯
+What is Delta Live Tables?
+"Delta Live Tables is a declarative ETL framework in Databricks where you declare WHAT your pipeline should produce — Databricks automatically manages HOW to run it, monitor it, retry failures, handle data quality and optimize performance"
+Simple Analogy 🍕
+Traditional ETL (Without DLT):
+Like cooking yourself:
+→ You buy ingredients
+→ You follow recipe steps
+→ You manage oven temperature
+→ You handle if something burns
+→ You clean up
+→ Everything manual!
+
+DLT:
+Like ordering from Swiggy:
+→ You just say "I want Biryani" (declare output)
+→ Swiggy handles everything else!
+→ Cooking, delivery, packaging
+→ If restaurant fails → retries automatically!
+→ You just get your Biryani! ✅
+Problem DLT Solves
+
+Traditional ETL Pipeline:
+→ Write Spark code manually ✅
+→ Handle failures manually ❌
+→ Monitor pipeline manually ❌
+→ Manage dependencies manually ❌
+→ Data quality checks manually ❌
+→ Retry logic manually ❌
+→ Backfill manually ❌
+→ Performance tuning manually ❌
+
+All this = months of engineering work!
+
+DLT:
+→ Write simple declarative code ✅
+→ Everything else → Databricks handles! ✅
+Core Concepts
+
+1️⃣ Streaming Table vs Materialized View vs View
+Three types of DLT datasets:
+
+STREAMING TABLE:
+→ Processes new data incrementally
+→ Each run processes only new records
+→ Good for: Bronze, Silver layers
+→ Supports append and CDC
+
+MATERIALIZED VIEW:
+→ Recomputes result based on latest data
+→ Like a cached query result
+→ Good for: Aggregations, Gold layer
+→ Always reflects current state
+
+VIEW:
+→ Virtual — no data stored
+→ Just a logical transformation
+→ Used for intermediate steps
+→ Not stored physically
+
+Three different read methods in DLT
+spark.readStream - Outside DLT (Regular streaming)
+dlt.read_stream - Inside DLT (streaming table)
+dlt.read - Inside DLT (batch/static read)
+
+2️⃣ How to Define DLT Tables
+import dlt
+from pyspark.sql.functions import *
+
+# STREAMING TABLE — Bronze layer
+@dlt.table(
+    name = "bronze_orders",
+    comment = "Raw orders from cloud storage"
+)
+def bronze_orders():
+    return (
+        spark.readStream
+            .format("cloudFiles")
+            .option("cloudFiles.format", "json")
+            .load("abfss://container@storage/raw/orders/")
+    )
+
+
+# STREAMING TABLE — Silver layer
+@dlt.table(
+    name = "silver_orders",
+    comment = "Cleaned and validated orders"
+)
+def silver_orders():
+    return (
+        dlt.read_stream("bronze_orders")  # Read from bronze!
+            .filter(col("amount") > 0)
+            .withColumn("order_date",
+                       col("order_date").cast("date"))
+            .dropDuplicates(["order_id"])
+    )
+
+
+# MATERIALIZED VIEW — Gold layer
+materiakized views are always correct because they automatically recompute when source data chnages - but their downside is higher latency
+because they might process all input data to ensure queries return correct results
+@dlt.table(
+    name = "gold_revenue_summary",
+    comment = "Daily revenue by region"
+)
+def gold_revenue_summary():
+    return (
+        dlt.read("silver_orders")  # Read from silver!
+            .groupBy("region", "order_date")
+            .agg(
+                sum("amount").alias("total_revenue"),
+                count("*").alias("order_count")
+            )
+    ).
+
+
+3️⃣ Data Quality — Expectations ⭐ (total 6 expectation types in total)
+This is the BIGGEST feature of DLT!
+# Define rules — what GOOD data looks like!
+
+@dlt.table(name = "silver_orders")
+@dlt.expect("valid_amount", "amount > 0")
+@dlt.expect("valid_order_id", "order_id IS NOT NULL")
+@dlt.expect("valid_date", "order_date IS NOT NULL")
+def silver_orders():
+    return dlt.read_stream("bronze_orders")
+Three Types of Expectations
+# 1. expect — WARN but keep bad records
+@dlt.expect("valid_amount", "amount > 0")
+# Bad records kept in table
+# Warning shown in pipeline UI
+# Good for: monitoring data quality
+
+# 2. expect_or_drop — DROP bad records
+@dlt.expect_or_drop("valid_amount", "amount > 0")
+# Bad records REMOVED from output
+# Good for: preventing bad data downstream
+
+# 3. expect_or_fail — FAIL pipeline
+@dlt.expect_or_fail("valid_amount", "amount > 0")
+# Bad records cause PIPELINE FAILURE!
+# Good for: critical data that must be perfect
+Real Data Quality Example
+@dlt.table(
+    name = "silver_orders",
+    comment = "Validated orders"
+)
+@dlt.expect("amount_positive",
+            "amount > 0")
+@dlt.expect_or_drop("order_id_not_null",
+                    "order_id IS NOT NULL")
+@dlt.expect_or_fail("customer_id_valid",
+                    "customer_id IS NOT NULL AND customer_id > 0")
+def silver_orders():
+    return (
+        dlt.read_stream("bronze_orders")
+            .select(
+                "order_id",
+                "customer_id",
+                "amount",
+                "region",
+                "order_date"
+            )
+    )
+
+# Result:
+# amount <= 0        → Warning, kept in table
+# order_id null      → Record DROPPED
+# customer_id null   → Pipeline FAILS!
+
+Group Expectation Decorators(3) 
+expect_all 
+These decorators accept a python dictionary as argument where key is expectation name and value is a constraint
+- allowing you to group multiple expectations and apply collective actions.
+expect_all
+expect_all_or_drop - drop if any rule fails
+expect_all_or_fail - fail if any rule fails
+
+when to use which?
+single rules (expect, expect_or_drop, expect_or_fail)
+few rules per table
+different actions for different rules
+supports in sql or python
+
+Group rules (expect_all,expect_all_or_drop,expect_all_or_fail)
+Many rules per tables
+same action for all rules
+reuse rules across multiple tables
+cleaner code
+python only
+
+
+
+DLT Pipeline — How to Create
+Databricks UI:
+→ Delta Live Tables (left menu)
+→ Create Pipeline
+
+Fill:
+→ Pipeline Name: orders_pipeline
+→ Product Edition: Core/Pro/Advanced
+→ Pipeline Mode: Triggered or Continuous
+→ Source Code: your notebook path
+→ Target Schema: main.silver
+→ Storage Location: abfss://path/
+→ Cluster Config: auto managed!
+→ Create!
+Two Pipeline Modes
+TRIGGERED Mode:
+→ Run on schedule
+→ Process new data
+→ Stop after completion
+→ Cost efficient ✅
+→ Like trigger(availableNow=True)
+
+CONTINUOUS Mode:
+→ Always running
+→ Process data as it arrives
+→ Low latency
+→ More expensive
+→ Like continuous streaming
+
+
+DLT vs Manual Spark ETL
+Feature
+Manual Spark ETL
+Delta Live Tables
+Code style
+Imperative (HOW)
+Declarative (WHAT)
+Failure handling
+Manual retry logic
+Auto retry ✅
+Dependencies
+Manual ordering
+Auto resolved ✅
+Data quality
+Manual checks
+Built-in expectations ✅
+Monitoring
+Manual dashboards
+Built-in UI ✅
+Backfill
+Complex
+Simple ✅
+Pipeline graph
+Not visible
+Visual DAG ✅
+Performance
+Manual tuning
+Auto optimized ✅
+DLT Pipeline Lineage — Visual DAG
+DLT automatically shows:
+
+raw_files (S3)
+     ↓
+[bronze_orders]
+     ↓
+[silver_orders] ← expectations checked here
+     ↓
+[gold_revenue_summary]
+     ↓
+Power BI Dashboard
+
+Visual graph shows:
+→ Each table as node
+→ Data flow as arrows
+→ Green = healthy ✅
+→ Red = failed ❌
+→ Expectations pass/fail counts
+
+DLT Editions
+CORE:
+→ Basic DLT features
+→ Streaming tables
+→ Basic expectations
+→ Good for simple pipelines
+
+PRO:
+→ Everything in Core
+→ Enhanced expectations
+→ SCD Type 1 and Type 2
+→ APPLY CHANGES INTO
+
+ADVANCED:
+→ Everything in Pro
+→ Enhanced monitoring
+→ Data lineage
+→ Better performance
+
+APPLY CHANGES INTO — CDC in DLT
+# Handle CDC data (inserts, updates, deletes)
+# from source like Kafka or Delta CDC
+
+dlt.create_streaming_table("silver_customers")
+
+dlt.apply_changes(
+    target = "silver_customers",
+    source = "bronze_customers_cdc",
+    keys = ["customer_id"],           # Match on this!
+    sequence_by = "updated_timestamp", # Latest wins!
+    apply_as_deletes = expr(
+        "operation = 'DELETE'"
+    ),
+    except_column_list = ["operation",
+                          "updated_timestamp"]
+)
+
+# Handles:
+# INSERT → Add new record ✅
+# UPDATE → Update existing record ✅
+# DELETE → Remove record ✅
+# All automatically! ✅
+When to Use DLT?
+Use DLT when:
+✅ Building Medallion architecture pipelines
+✅ Need built-in data quality checks
+✅ Team wants visual pipeline monitoring
+✅ Tired of writing retry/failure logic
+✅ CDC pipelines needed
+✅ Multiple dependent tables to manage
+
+Stick to Manual Spark when:
+→ Very complex custom Python logic
+→ Non-standard transformations
+→ Team not familiar with DLT yet
+→ Simple one-off scripts
+🎯 Interview Answer
+"Delta Live Tables is Databricks declarative ETL framework where you declare what your pipeline should produce using simple Python decorators — Databricks automatically handles dependency resolution, failure retries, performance optimization and monitoring.
+Key features are three dataset types — Streaming Tables for incremental processing, Materialized Views for aggregated results, and Views for intermediate logic. The most powerful feature is Expectations for built-in data quality — expect warns but keeps bad records, expect_or_drop removes bad records, expect_or_fail stops the entire pipeline.
+DLT also supports CDC through APPLY CHANGES INTO which handles inserts, updates and deletes automatically. Pipelines run in Triggered mode for scheduled batch processing or Continuous mode for real time processing.
+The biggest advantage over manual Spark ETL is the visual DAG showing entire pipeline lineage, built-in monitoring dashboard, automatic dependency ordering and zero boilerplate retry logic — making it the recommended approach for building production Medallion architecture pipelines in Databricks!"
