@@ -3421,3 +3421,26 @@ Stick to Manual Spark when:
 Key features are three dataset types — Streaming Tables for incremental processing, Materialized Views for aggregated results, and Views for intermediate logic. The most powerful feature is Expectations for built-in data quality — expect warns but keeps bad records, expect_or_drop removes bad records, expect_or_fail stops the entire pipeline.
 DLT also supports CDC through APPLY CHANGES INTO which handles inserts, updates and deletes automatically. Pipelines run in Triggered mode for scheduled batch processing or Continuous mode for real time processing.
 The biggest advantage over manual Spark ETL is the visual DAG showing entire pipeline lineage, built-in monitoring dashboard, automatic dependency ordering and zero boilerplate retry logic — making it the recommended approach for building production Medallion architecture pipelines in Databricks!"
+
+
+******************
+Databricks secrets scope
+https://youtu.be/f4SrT3DDdBo?si=1iZl-sKsCKNzE6WP
+
+********************
+If i use normal notebook to run the code then i have to give checkpoint location , schema location paths
+if i use DLT then checkpoint location, schema location all are Databricks automatically take care about this - how?
+when we create dlt pipeline in settings there is a storage location so at that path databricks will store all these checkpoint, schema locations
+
+***************************
+
+if you want to mount your storage container in databricks with unity catalog
+In Azure 
+- Azure databricks access connector
+- storage account
+- Role Assignment (storage blob data contributor)
+In unity catalog
+- create storage credential (in this provide Access connector id )
+- create External location (give url abfss://container@storageaccount.dfs.core.windows.net) and above created storage credential
+
+***********************************
