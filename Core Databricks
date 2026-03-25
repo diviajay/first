@@ -3459,3 +3459,31 @@ in free edition we add modify the configurations but in paid version we can conf
 difference between DESCRIBE HISTORY, DESCRIBE EXTENDED
 HOW to enable TBLPROPERTIES (delta.enableChangeDataFeed=true) in table
 purpose of select * from table_changes(tablename, versionnumber)
+
+**********************
+if you want to enable dbfs browser then go profile click settings then go to advanced then enable DBFS browser option
+
+************************
+
+******important point
+when you created workspace in azure databricks
+databricks create two resource groups one is in your resource group and another one is
+in azure search bar type "databricks-rg-yourworkspacename" then enter now you can see that internal managed resource group
+
+**when you deploy azure databricks, azure splits the infrastructure into two distinct parts to keep the "software" separate 
+from the "hardware".
+1) The workspace resource group (your group)
+this is the group you created and named. This of this as the front office
+whats inside : just the azure databricks service (the UI/Portal)
+who manages it : you can move it or delete it.
+purpose : This is where you log in and create notebooks and manage users.
+
+2) The managed resource group (The system group)
+Azure creates this automatically (usually names databricks-rg-workspacename). This of this as a engine room.
+whats inside: All the heavy machinery required to run your code.
+ 		- virtual machines : the actual servers (clusters) that process your data
+		- storage account : the dbstorage account you found (used for systemlogs and dbfs)
+		- Network (VNet): The private road where data travels
+who manages it : Azure. It has a lock on it (Deny assignment) so you dont accidently delete a disk or a server that the databricks 
+UI needs to function
+Purpose : This is where the actual computation happens
