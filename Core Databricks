@@ -3444,3 +3444,12 @@ In unity catalog
 - create External location (give url abfss://container@storageaccount.dfs.core.windows.net) and above created storage credential
 
 ***********************************
+
+serverless starter warehouse cluster
+T-shirt sizes like
+2x -small (approx 1 node)
+x- small (2 nodes)
+small ( 4 nodes)
+medium (8 nodes)
+large (16 nodes)
+x - large to 4x - large (32 to 512 nodes)
