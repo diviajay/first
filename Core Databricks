@@ -3487,3 +3487,14 @@ whats inside: All the heavy machinery required to run your code.
 who manages it : Azure. It has a lock on it (Deny assignment) so you dont accidently delete a disk or a server that the databricks 
 UI needs to function
 Purpose : This is where the actual computation happens
+
+
+*******************
+CREATION OF DLT PIPELINES
+pipelinename
+serverless
+pipeline mode (triggered or continous)
+run as (ajay.divi)
+usuage policy
+source code paths
+destination locations (storage options - hive metastore or unity catalog)
