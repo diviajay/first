@@ -3453,3 +3453,9 @@ small ( 4 nodes)
 medium (8 nodes)
 large (16 nodes)
 x - large to 4x - large (32 to 512 nodes)
+in free edition we add modify the configurations but in paid version we can configure cluster sizes, auto stop, scaling)
+
+************************************
+difference between DESCRIBE HISTORY, DESCRIBE EXTENDED
+HOW to enable TBLPROPERTIES (delta.enableChangeDataFeed=true) in table
+purpose of select * from table_changes(tablename, versionnumber)
