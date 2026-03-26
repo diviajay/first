@@ -3521,3 +3521,11 @@ from pyspark import pipelines as dp
 @dp.expect(...)
 def <function-name>():
     return (<query>)
+
+******************************
+if you want to mount your adls storgae container in databricks first you have to create databricks access connector
+then Storage IAM assign roles 
+storage blob data contributor
+eventgrid subscription contributor
+Storage Queue Data Contributor
+Please ensure the IAM roles Storage Account Contributor, EventGrid EventSubscription Contributor are correctly assigned to your managed identity (or service principal, if used).
