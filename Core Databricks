@@ -3493,11 +3493,18 @@ Purpose : This is where the actual computation happens
 CREATION OF DLT PIPELINES
 pipelinename
 serverless
+product edition (core, pro, advanced) better to select advanced
 pipeline mode (triggered or continous)
 run as (ajay.divi)
 usuage policy
 source code paths
 destination locations (storage options - hive metastore or unity catalog)
+when you hive metastore in that you have to give storage location of adls to save your outputs Note: for this 
+you have to click on advanced and click add configuration 
+in key place : spark.hadoop.fs.azure.account.key.storageaccountname.dfs.core.windows.net
+in value place : copy key from (go to storageaccount in left bar (security + networking access key ) there 
+click on show key and copy 
+
 
 ***********************
 
