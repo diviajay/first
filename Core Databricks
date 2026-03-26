@@ -3498,3 +3498,26 @@ run as (ajay.divi)
 usuage policy
 source code paths
 destination locations (storage options - hive metastore or unity catalog)
+
+***********************
+
+If you want to store your DLT pipelines tables output in external location like adls or s3 then while creation of 
+dlt tables you can give PATH of your external location
+
+from pyspark import pipelines as dp
+
+@dp.table(
+  name="<name>",
+  comment="<comment>",
+  spark_conf={"<key>" : "<value>", "<key>" : "<value>"},
+  table_properties={"<key>" : "<value>", "<key>" : "<value>"},
+***  path="<storage-location-path>",***
+  partition_cols=["<partition-column>", "<partition-column>"],
+  cluster_by_auto = <bool>,
+  cluster_by = ["<clustering-column>", "<clustering-column>"],
+  schema="schema-definition",
+  row_filter = "row-filter-clause",
+  private = <bool>)
+@dp.expect(...)
+def <function-name>():
+    return (<query>)
