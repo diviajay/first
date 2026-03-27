@@ -3530,6 +3530,13 @@ _delta_log lo crc and json files vuntayi
 _dlt_metadata lo checkpoints vuntayi vatilo malli 3 folders vuntayi
 (commits, offsets, metadata ani)
 
+everytime you are running your pipelines and checking folders there you can see diffculties like which file is latest one
+of your last pipeline run
+then use describe history tablename - it will version numbers, clusterids (it will show how many files created with same clusterid)
+0000000versionnumber.json (means json files names are the version numbers)
+
+
+
 ******************************
 if you want to mount your adls storgae container in databricks first you have to create databricks access connector
 then Storage IAM assign roles 
@@ -3541,4 +3548,5 @@ Please ensure the IAM roles Storage Account Contributor, EventGrid EventSubscrip
 
 *********************************
 
+restore table employee to version as of 11;
 
