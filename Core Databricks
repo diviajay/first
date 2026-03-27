@@ -3518,6 +3518,17 @@ create schema ajjay_workspace.outputs
 managed location "abfss://source@divialearning.dfs.core.windows.net/outputs";
 Then give target destination schema as outputs in dlt pipeline settings
 
+meru pipeline run chesina taravatha, ha tables mee adls path lo store avuthayi but meku confusion vastundhi ye table
+ye folder related ani? daniki meru databricks query editor lo descriobe extended tablename run chestey andulo location
+vastundhi dani batti meru decide avvachu ye table deniki related folder ani
+
+Unity catalog DLT pipeline run chesinappudu adhi automatically oka folder create chestundhi mee tables tho kalipi adhi 
+delta pipeline yokka internal metadata/checkpoint kosam maintain chestundhi
+
+prathi folder lo _delta_log and dlt_metadata ani two folders vuntayi 
+_delta_log lo crc and json files vuntayi
+_dlt_metadata lo checkpoints vuntayi vatilo malli 3 folders vuntayi
+(commits, offsets, metadata ani)
 
 ******************************
 if you want to mount your adls storgae container in databricks first you have to create databricks access connector
@@ -3529,3 +3540,5 @@ Please ensure the IAM roles Storage Account Contributor, EventGrid EventSubscrip
 
 
 *********************************
+
+
