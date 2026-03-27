@@ -3509,25 +3509,15 @@ click on show key and copy
 ***********************
 
 If you want to store your DLT pipelines tables output in external location like adls or s3 then while creation of 
-dlt tables you can give PATH of your external location
+dlt tables. unity catalog by default it wont allow you to store output tables in our provided paths like adls or s3
+it will store in its own managed storage even if we given adls paths
+*** you do one thing 
+create external location 
+then create schema with that location like below
+create schema ajjay_workspace.outputs
+managed location "abfss://source@divialearning.dfs.core.windows.net/outputs";
+Then give target destination schema as outputs in dlt pipeline settings
 
-from pyspark import pipelines as dp
-
-@dp.table(
-  name="<name>",
-  comment="<comment>",
-  spark_conf={"<key>" : "<value>", "<key>" : "<value>"},
-  table_properties={"<key>" : "<value>", "<key>" : "<value>"},
-***  path="<storage-location-path>",***
-  partition_cols=["<partition-column>", "<partition-column>"],
-  cluster_by_auto = <bool>,
-  cluster_by = ["<clustering-column>", "<clustering-column>"],
-  schema="schema-definition",
-  row_filter = "row-filter-clause",
-  private = <bool>)
-@dp.expect(...)
-def <function-name>():
-    return (<query>)
 
 ******************************
 if you want to mount your adls storgae container in databricks first you have to create databricks access connector
@@ -3536,3 +3526,6 @@ storage blob data contributor
 eventgrid subscription contributor
 Storage Queue Data Contributor
 Please ensure the IAM roles Storage Account Contributor, EventGrid EventSubscription Contributor are correctly assigned to your managed identity (or service principal, if used).
+
+
+*********************************
