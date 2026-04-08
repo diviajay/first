@@ -3549,4 +3549,41 @@ Please ensure the IAM roles Storage Account Contributor, EventGrid EventSubscrip
 *********************************
 
 restore table employee to version as of 11;
+*********************************
+if i use serverless compute or all purpose or job compute in databricks then no need to create sparksession object
+Databricks itself in backend it will create spark session with name as spark then directly we can start working spark.read
+if you are working in local then you have to create sparksession
 
+***********************************
+sizes of serverless computes:
+2x-small
+x-small
+small
+medium
+large
+2x-large
+till 5x-large
+**********************************
+you have to understand how to remain in mind of cluster details like what is standard and ds3 these naming conventions
+
+******************************
+In jobs&pipelines if you want to use parameterization(sending one notebook output to another notebook input)
+dbutils.jobs.taskValues.set(key=keyname, values=values)
+then in another notebook you have to create one parameter like dbutils.widgets.text("parametername",defaultvalue=None)
+then in Jobs you have to mention that key and value 
+
+even in jobs you have to understand key things
+triggered, conitnous mode
+purpose of performance optimization
+purpose of notifications
+scheduler and its types (
+schedule (time based), 
+file arrival (event based)
+continous (runs the job conitnously without stopping)
+manual (run now / on demand), 
+
+what is repair run?
+explain the importance of runs and jobs tabs in UI?
+
+
+************************************
