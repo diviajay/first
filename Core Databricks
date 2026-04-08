@@ -3587,3 +3587,20 @@ explain the importance of runs and jobs tabs in UI?
 
 
 ************************************
+If i have job with 20 tasks. my 15th task failed so 16 is dependent of 15, 17 to 20 tasks are not dependent on 16 
+in this scenerio my databrciks job will only stop 15 and 16 tasks. 17 to 20 tasks tasks executed automatically
+if you want to run tasks only completion of previous tasks then in job pipeline settings we are having
+RUN IF DEPENDENCIES or RUN IF CONDITION option -
+ALL SUCCEEDED (DEFAULT) - Task 16 will run only if all 15 tasks finishes perfectly.
+AT LEAST ONE SUCCEEDED - any one task successfully then 16 task will start
+AT LEAST ONE FAILED - Useful for error handling
+ALL SETTLED - The task will run NO MATTER WHAT HAPPENED  to the previoous tasks (success or failure or skip)
+**************************************
+
+If i set job level notifications if any task fails?
+The trigger : A soon as a task fails and has no more retries left, the entire job is marked as "Failed" (or) "Timed out"
+The Email : Databricks sends email to outlooks
+The content : That email will explicitly state that the job failed like 
+jobid,   runid, task name, direct link to that task
+
+*********************************************
