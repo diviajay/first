@@ -3604,3 +3604,17 @@ The content : That email will explicitly state that the job failed like
 jobid,   runid, task name, direct link to that task
 
 *********************************************
+
+in cluster creation options
+clustername
+policy (unrestricted, shared compute, personal compute, power user computer, legacy shared compute)
+performance (tick box with machine learning name)
+databricks runtime, photon acceleration enable ment
+auto scaling
+terminate cluster after some minutes
+Advanced (use spot workers)
+
+example standard_ds3_v2 14gb memory 4 cores ( min 1 to max 5 )
+means total 14 to 70 gb memory
+4 to 20 cores
+DBU 3-9 DBU/h
