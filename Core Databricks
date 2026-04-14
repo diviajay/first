@@ -3618,3 +3618,25 @@ example standard_ds3_v2 14gb memory 4 cores ( min 1 to max 5 )
 means total 14 to 70 gb memory
 4 to 20 cores
 DBU 3-9 DBU/h
+
+**************************************
+unity catalog privilages
+https://learn.microsoft.com/en-us/azure/databricks/data-governance/unity-catalog/access-control/privileges-reference
+
+******************
+Why is it necessary to use the DBU framework?”, they are usually referring to the Databricks Utilities framework (dbutils), not pricing DBUs.
+What is DBU framework (dbutils)?
+The DBU (Databricks Utilities) framework is a built‑in utility library in Databricks that helps interact with:
+
+Cloud storage
+Secrets
+Widgets
+Jobs & notebooks
+File systems
+
+It acts as a bridge between code and Databricks platform services.
+dbutils.fs.ls("path")
+dbutils.widgest.text()
+dbutils.fs.rm or cp
+dbutils.secrets.get or .set
+**************************************************
