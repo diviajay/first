@@ -3640,3 +3640,15 @@ dbutils.widgest.text()
 dbutils.fs.rm or cp
 dbutils.secrets.get or .set
 **************************************************
+
+Understand when to use job notification like
+direct mail  - small team, simple ga alert kavali antey
+pagerduty webhook  - it will alert with on call 
+slack webhook - teams chat alert
+in detail learn above by searching gemini or claude
+**********************************************
+
+how do you handle late arriving data in streaming?
+df.withwatermark("event_time","10minutes").groupby(window("event_time"), "userid").count()
+
+*********************************
