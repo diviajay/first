@@ -1,0 +1,3 @@
+what are window functions?
+window functions performs a calucations across a set of rows related to the current row - without collapsing them
+like grouop by does.
