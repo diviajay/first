@@ -6,3 +6,9 @@ My role was to develop and support data integration and transformation pipelines
 I worked on sql transformations, built pyspark jobs in databricks and azure data factory
 I gained strong hands on experience with end to end pipelines and became comfortable handling production data issues
 independently
+
+
+project explanation example :
+In our implementation we used ADLS Gen2 as the central storage layer. Data was ingested from multiple sources using azure 
+data factory. Raw data was stored in bronze layer, processed using databricks into silver and gold layers. 
+we implemented RBAC AND ACLS for security and lifecycle policies to optimize costs
