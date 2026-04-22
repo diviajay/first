@@ -12,3 +12,6 @@ project explanation example :
 In our implementation we used ADLS Gen2 as the central storage layer. Data was ingested from multiple sources using azure 
 data factory. Raw data was stored in bronze layer, processed using databricks into silver and gold layers. 
 we implemented RBAC AND ACLS for security and lifecycle policies to optimize costs
+
+why should we hire you?
+I bring hands-on experience, production ownership , and strong debugging skills
